@@ -7,8 +7,76 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// TestFileExists verifies FileExists returns the correct value for existing
+// and non-existing paths.
+func TestFileExists(t *testing.T) {
+	tmp, err := os.CreateTemp("", "fileexists_test")
+	require.NoError(t, err)
+	tmp.Close()
+	defer os.Remove(tmp.Name())
+
+	assert.True(t, FileExists(tmp.Name()))
+	assert.False(t, FileExists(tmp.Name()+".nonexistent"))
+}
+
+// TestReadFile verifies that ReadFile can read an existing file and returns an
+// error for a non-existent one.
+func TestReadFile(t *testing.T) {
+	content := []byte("hello readfile")
+	tmp, err := os.CreateTemp("", "readfile_test")
+	require.NoError(t, err)
+	_, err = tmp.Write(content)
+	require.NoError(t, err)
+	tmp.Close()
+	defer os.Remove(tmp.Name())
+
+	data, err := ReadFile(tmp.Name())
+	require.NoError(t, err)
+	assert.Equal(t, content, data)
+
+	_, err = ReadFile(tmp.Name() + ".nonexistent")
+	require.Error(t, err)
+}
+
+// TestWriteFile verifies that WriteFile creates a file with the given content
+// and that the permissions are set correctly.
+func TestWriteFile(t *testing.T) {
+	dir, err := os.MkdirTemp("", "writefile_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	path := filepath.Join(dir, "testfile")
+	content := []byte("write file content")
+	require.NoError(t, WriteFile(path, content, 0600))
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, content, data)
+}
+
+// TestMustWriteFile verifies that MustWriteFile successfully writes to a valid
+// path.
+func TestMustWriteFile(t *testing.T) {
+	dir, err := os.MkdirTemp("", "mustwritefile_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	path := filepath.Join(dir, "mustwrite")
+	content := []byte("must write content")
+
+	// Should not panic on a writable path.
+	require.NotPanics(t, func() {
+		MustWriteFile(path, content, 0600)
+	})
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, content, data)
+}
 
 func TestCopyFile(t *testing.T) {
 	tmpfile, err := os.CreateTemp("", "example")
@@ -111,3 +179,4 @@ func TestTrickedTruncation(t *testing.T) {
 		t.Fatalf("Oops, the WAL's content was changed :(\nGot:  %q\nWant: %q", reReadWAL, originalWALContent)
 	}
 }
+
