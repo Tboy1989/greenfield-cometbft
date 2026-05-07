@@ -76,8 +76,14 @@ func TestConnect(t *testing.T) {
 
 // TestConnectFailure verifies that Connect returns an error for an unreachable address.
 func TestConnectFailure(t *testing.T) {
-	// Port 1 is reserved and should be unreachable in test environments.
-	_, err := Connect("tcp://127.0.0.1:1")
+	// Find a free port, bind to it, then close the listener so nothing is
+	// accepting on that port when we call Connect.
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	addr := ln.Addr().String()
+	ln.Close()
+
+	_, err = Connect(fmt.Sprintf("tcp://%s", addr))
 	require.Error(t, err)
 }
 
